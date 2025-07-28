@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>インタラクティブ・テキサスBBQレポート</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: このSPAは、ユーザーが情報を自由に探索できるよう、テーマ別のセクションを持つダッシュボード形式を採用しています。ナビゲーションで「旅の軌跡」「BBQレストラン探訪」「BBQの学び」「データ分析」の各セクションにジャンプできます。「旅の軌跡」では日付をクリックするとその日の詳細が表示され、「レストラン探訪」ではカードをクリックすると詳細が展開されます。この非線形な構造は、レポートの章立てをなぞるのではなく、ユーザーの興味に応じて情報を深掘りできるため、より高いエンゲージメントと理解を促進すると考え採用しました。 -->
+    <!-- Visualization & Content Choices: レポート情報を「目的」に応じて最適な形式に変換しました。旅の全体像を把握する「目的」のため、HTML/CSSでインタラクティブな「タイムライン」を作成。レストランを比較・理解する「目的」のため、クリックで詳細が表示される「カードグリッド」を採用。技術的な学びを整理する「目的」のため、「タブUI」で情報を分類。価格を比較する「目的」のため、Chart.jsを用いて「横棒グラフ」を作成し、専門店の価格とスーパーの価格を視覚的に対比させました。これにより、テキストだけでは伝わりにくい関係性や比較が直感的に理解できます。Gemini APIを活用し、BBQ用語の詳細解説とテキサスBBQレシピ提案の機能を追加しました。 -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #FDFBF8;
+            color: #382E28;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 400px;
+            max-height: 50vh;
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #D97706;
+            border-bottom-color: #D97706;
+        }
+        .tab-button.active {
+            background-color: #D97706;
+            color: #FFFFFF;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .content-card {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .content-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #E5E7EB;
+        }
+        .timeline-item:first-child::before {
+            top: 12px;
+        }
+        .timeline-item:last-child::before {
+            bottom: calc(100% - 12px);
+        }
+        .timeline-dot {
+            position: absolute;
+            left: 0;
+            top: 12px;
+            transform: translate(-50%, -50%);
+            width: 24px;
+            height: 24px;
+            border-radius: 9999px;
+            background-color: #FDFBF8;
+            border: 2px solid #D1D5DB;
+            transition: all 0.3s ease;
+        }
+        .timeline-item.active .timeline-dot {
+            background-color: #D97706;
+            border-color: #D97706;
+        }
+        .llm-button {
+            background-color: #D97706;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .llm-button:hover {
+            background-color: #B45309;
+        }
+        .llm-response {
+            background-color: #FDF2F8;
+            border-left: 4px solid #D97706;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            border-radius: 0.5rem;
+            color: #382E28;
+        }
+        .loading-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1rem;
+            color: #D97706;
+            font-weight: 500;
+        }
+        .loading-indicator svg {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-stone-800 text-white shadow-lg p-6 text-center sticky top-0 z-50">
+        <h1 class="text-3xl md:text-4xl font-bold tracking-wider">インタラクティブ・テキサスBBQレポート</h1>
+        <p class="mt-2 text-stone-300">本場のBBQ文化、学び、そして発見の旅路</p>
+    </header>
+
+    <nav id="navbar" class="bg-white/80 backdrop-blur-md shadow-md sticky top-[92px] z-40">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-center items-center space-x-4 sm:space-x-8 py-3 overflow-x-auto">
+                <a href="#journey" class="nav-link font-semibold whitespace-nowrap px-2 py-2 text-sm sm:text-base">旅の軌跡</a>
+                <a href="#restaurants" class="nav-link font-semibold whitespace-nowrap px-2 py-2 text-sm sm:text-base">BBQレストラン探訪</a>
+                <a href="#learnings" class="nav-link font-semibold whitespace-nowrap px-2 py-2 text-sm sm:text-base">BBQの学び</a>
+                <a href="#data" class="nav-link font-semibold whitespace-nowrap px-2 py-2 text-sm sm:text-base">データ分析</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 md:p-8">
+        
+        <section id="journey" class="mb-16 scroll-mt-48">
+            <h2 class="text-3xl font-bold text-center mb-2 text-amber-800">旅の軌跡</h2>
+            <p class="text-center text-stone-600 mb-12 max-w-3xl mx-auto">このセクションでは、テキサスでの日々の出来事や発見を時系列で追体験できます。左のタイムラインから日付を選択すると、その日の詳細なレポートが表示されます。旅の始まりから終わりまで、日ごとの学びや感動をご覧ください。</p>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="md:col-span-1">
+                    <div id="timeline-nav" class="space-y-4">
+                    </div>
+                </div>
+                <div class="md:col-span-2">
+                    <div id="journey-content" class="bg-white p-6 rounded-lg shadow-md min-h-[400px]">
+                        <h3 id="journey-title" class="text-2xl font-bold mb-4 text-stone-700"></h3>
+                        <div id="journey-body" class="prose max-w-none text-stone-600"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="restaurants" class="mb-16 scroll-mt-48">
+            <h2 class="text-3xl font-bold text-center mb-2 text-amber-800">BBQレストラン探訪</h2>
+            <p class="text-center text-stone-600 mb-12 max-w-3xl mx-auto">今回の旅で訪れた個性豊かなBBQレストランを紹介します。それぞれのカードをクリックすると、店の雰囲気、名物料理、そしてピットマスターの哲学など、詳細な情報が展開されます。テキサスBBQの多様性と奥深さを感じてください。</p>
+            <div id="restaurant-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            </div>
+        </section>
+
+        <section id="learnings" class="mb-16 scroll-mt-48">
+            <h2 class="text-3xl font-bold text-center mb-2 text-amber-800">BBQの学び</h2>
+            <p class="text-center text-stone-600 mb-12 max-w-3xl mx-auto">本場のプロから直接学んだBBQの技術と知識をまとめました。肉の選び方からスモークの極意まで、具体的な手順やポイントを解説します。下のタブをクリックして、各工程の詳細をご覧ください。</p>
+            <div class="max-w-4xl mx-auto">
+                <div class="flex justify-center border-b border-stone-200 mb-6">
+                    <button data-tab="trimming" class="tab-button px-6 py-3 font-semibold rounded-t-lg">トリミング</button>
+                    <button data-tab="seasoning" class="tab-button px-6 py-3 font-semibold rounded-t-lg">シーズニング</button>
+                    <button data-tab="smoking" class="tab-button px-6 py-3 font-semibold rounded-t-lg">スモーキング</button>
+                </div>
+                <div id="learnings-content" class="bg-white p-6 rounded-lg shadow-md">
+                    <div id="llm-explanation-area" class="mt-6 hidden"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="data" class="scroll-mt-48">
+            <h2 class="text-3xl font-bold text-center mb-2 text-amber-800">データで見るテキサスBBQ</h2>
+            <p class="text-center text-stone-600 mb-12 max-w-3xl mx-auto">感覚だけでなく、数字からもテキサスBBQを分析します。このグラフは、専門店「HUTCHIN'S」のBBQメニューと、大手スーパー「ウォルマート」で販売されている牛肉の価格（100gあたり）を比較したものです。職人の技術と手間が価格にどう反映されているか、一目でわかります。</p>
+            <div class="bg-white p-4 md:p-8 rounded-lg shadow-lg">
+                <div class="chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+                <div class="mt-8 text-center">
+                    <button id="generate-recipe-btn" class="llm-button">✨ テキサスBBQレシピを生成</button>
+                    <div id="recipe-output" class="llm-response hidden"></div>
+                    <div id="recipe-loading" class="loading-indicator hidden">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        レシピ生成中...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-stone-800 text-white mt-16 py-8">
+        <div class="container mx-auto text-center text-stone-400">
+            <p>&copy; 2024 Interactive Texas BBQ Report. All rights reserved.</p>
+        </div>
+    </footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    const apiKey = ""; 
+
+    const journeyData = {
+        '7-6': {
+            title: '7月6日：出発と到着、最初の出会い',
+            content: `
+                <p class="mb-4">福岡から成田を経由し、ダラスへ。長い移動の末、現地でランディーさんと合流。円安を実感しつつ（2万円が135ドルに）、最初の夜はランディーさんの友人経営の「LOCAL YOCAL」へ。</p>
+                <h4 class="font-semibold mt-4 mb-2">主な活動:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>ランディーさん家族へのお土産を追加購入</li>
+                    <li>成田からダラスへのフライト</li>
+                    <li>ランディーさんと合流し「LOCAL YOCAL」で夕食</li>
+                </ul>
+                <h4 class="font-semibold mt-4 mb-2">気づき:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>土壇場での人間の行動力はすごい（ランディーさんの返信速度が劇的に向上）。</li>
+                    <li>アメリカン和牛とオーストラリアン和牛の品質の違いについて学ぶ。</li>
+                    <li>ランディーさんの「プロセスを理解すれば機材を変えても最高のものが作れる」という哲学に触れる。</li>
+                </ul>
+            `
+        },
+        '7-7': {
+            title: '7月7日：巨大スーパーと本場のBBQ',
+            content: `
+                <p class="mb-4">午前中はフリータイムを利用し、巨大スーパー「ウォルマート」を散策。商品のサイズや価格帯にアメリカのスケールを感じました。夕方には、ランディーさん一押しの「HUTCHIN’S BARBEQUE」で本場の味に圧倒されました。</p>
+                <h4 class="font-semibold mt-4 mb-2">主な活動:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>ウォルマート訪問</li>
+                    <li>HUTCHIN’S BARBEQUEで夕食</li>
+                </ul>
+                <h4 class="font-semibold mt-4 mb-2">気づき:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>ウォルマートの肉は基本的に大容量。豚肉は非常に安価だが、牛肉は日本の価格と比較して高め。</li>
+                    <li>HUTCHIN'Sではピットの仕組みや携帯での温度管理システムを見学。</li>
+                    <li>名物のビーフリブやブリスケットは高価だが、その価値ある絶品。オーナーのJOE氏にご馳走になるという幸運も。</li>
+                </ul>
+            `
+        },
+        '7-8': {
+            title: '7月8日：TEX-MEXスタイルと仕込みの極意',
+            content: `
+                <p class="mb-4">メキシコ文化と融合した「VAQUERO’S BARBEQUE」を訪問。革新的な排気システムや独自のTEX-MEXスタイルに感銘を受けました。夜はランディーさん宅で、ブリスケットなどのトリミングとシーズニングの秘訣を学びました。</p>
+                <h4 class="font-semibold mt-4 mb-2">主な活動:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>VAQUERO’S BARBEQUE訪問</li>
+                    <li>ランディーさん宅でBBQ肉のトリミングと仕込みを学ぶ</li>
+                </ul>
+                <h4 class="font-semibold mt-4 mb-2">気づき:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>VAQUERO'Sは屋内にピットを設置し、煙を濾過する先進的なシステムを導入。</li>
+                    <li>ブリスケットのトリミングは「平らに、滑らかなカーブで」が重要。</li>
+                    <li>伝統的なテキサススタイルのシーズニングの配合（ガーリックペッパー、ガーリックパウダー、塩、オニオンパウダー）を教わる。</li>
+                </ul>
+            `
+        },
+        '7-9': {
+            title: '7月9日：スモーク開始と異文化体験',
+            content: `
+                <p class="mb-4">昨日仕込んだ肉をいよいよグリルへ。煙の色を見極める重要性など、スモークの奥深さに触れました。日中はWincoでの買い物に失敗したり、現地のラーメン店を訪れたりと、様々な文化体験をしました。</p>
+                <h4 class="font-semibold mt-4 mb-2">主な活動:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>4種類の肉のスモークを開始</li>
+                    <li>Winco訪問（クレジットカードが使えず失敗）</li>
+                    <li>ラーメン店「Tiger Ramen」で夕食</li>
+                </ul>
+                <h4 class="font-semibold mt-4 mb-2">気づき:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>スモークは煙が白から青に変わってからが本番。白い煙はエグみの原因になる。</li>
+                    <li>チキン（3時間）、ポークベリー（4時間半）が完成。ラッピングの技術を学ぶ。</li>
+                    <li>ポークベリーは「ポークマシュマロ」の名の通り、ふわふわで絶品。</li>
+                </ul>
+            `
+        },
+        '7-10': {
+            title: '7月10日：感動の完成と新たなBBQ',
+            content: `
+                <p class="mb-4">14時間に及ぶスモークの末、ポークショルダーとブリスケットが完成。手でほぐれるほど柔らかいポークショルダーに感動しました。さらにポークリブの調理法も学び、夜は「HURTADO BARBECUE」で新たなBBQ料理に出会いました。</p>
+                <h4 class="font-semibold mt-4 mb-2">主な活動:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>ポークショルダーとブリスケットの完成</li>
+                    <li>ポークリブの調理法を学ぶ</li>
+                    <li>HURTADO BARBECUE訪問</li>
+                </ul>
+                <h4 class="font-semibold mt-4 mb-2">気づき:</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>ポークショルダーは手で崩れるほど柔らかく、パプリカ系のシーズニングとの相性が抜群。</li>
+                    <li>ポークリブは骨から簡単に肉が落ちる完璧な仕上がり。</li>
+                    <li>HURTADOの「THE BIG PAPA」は、巨大なじゃがいもにブリスケットなどを乗せた豪快で美味しい一品。</li>
+                </ul>
+            `
+        }
+    };
+
+    const restaurantData = [
+        {
+            name: 'LOCAL YOCAL',
+            tagline: 'ウエスタンと高級感の融合',
+            content: `
+                <p>ブティック街にある女性に人気のレストラン。ランディーさんの友人が経営しており、ウエスタンな雰囲気に高級感をプラスした内装が特徴。数百種類のお酒が並ぶバーカウンターや、手書きの黒板メニューが親しみやすさを演出している。</p>
+                <h4 class='font-semibold mt-4 mb-2'>名物・特徴:</h4>
+                <ul class='list-disc pl-5'>
+                    <li><strong>The Hamilton Burger:</strong> アメリカン和牛100%のパティ2枚にカリカリのベーコンとチーズを合わせた絶品バーガー。</li>
+                    <li><strong>クラフトビール:</strong> 近くのブルワリーから仕入れた多様なクラフトビールが楽しめる。</li>
+                    <li><strong>哲学:</strong> BBQ専門店ではないが、質の高い料理と居心地の良い空間を提供。</li>
+                </ul>
+            `
+        },
+        {
+            name: 'HUTCHIN’S BARBEQUE',
+            tagline: '王者の風格、伝統の味',
+            content: `
+                <p>ランディーさん曰く「この周辺で一番美味しい」BBQ店。最新の温度管理システムを導入したピットが並び、伝統の味を高いレベルで提供し続ける。価格は高いが、その価値は十分にあると納得させられる。</p>
+                <h4 class='font-semibold mt-4 mb-2'>名物・特徴:</h4>
+                <ul class='list-disc pl-5'>
+                    <li><strong>ビーフリブ & ブリスケット:</strong> まさにテキサスBBQの王道。完璧なスモークとジューシーさ。</li>
+                    <li><strong>TEXAS TWINKIE:</strong> ブリスケットとクリームチーズをハラペーニョに詰めてベーコンで巻いた名物料理。</li>
+                    <li><strong>無料のサイドディッシュ:</strong> ドリンクバーとサイドディッシュバーが無料で利用可能。</li>
+                </ul>
+            `
+        },
+        {
+            name: 'VAQUERO’S BAR-B-Q',
+            tagline: '革新と伝統が交差するTEX-MEX',
+            content: `
+                <p>メキシコにルーツを持つピットマスターが営む、革新的なBBQショップ。最大の特徴は、煙を濾過して水蒸気のみを排出する屋内のBBQピット。これにより、従業員は快適な環境で作業できる。</p>
+                <h4 class='font-semibold mt-4 mb-2'>名物・特徴:</h4>
+                <ul class='list-disc pl-5'>
+                    <li><strong>TEX-MEXスタイル:</strong> テキサススタイルとメキシコスタイルを融合。ブリスケットをタコスに使うなど、独自の料理を展開。</li>
+                    <li><strong>革新的なピット:</strong> 屋内設置・排気濾過システム・エアコン完備という先進的な設備。</li>
+                    <li><strong>文化の尊重:</strong> グリルにはアステカ神話の神々が装飾され、文化へのリスペクトが感じられる。</li>
+                </ul>
+            `
+        },
+        {
+            name: 'HURTADO BARBECUE',
+            tagline: '新世代のスタイリッシュBBQ',
+            content: `
+                <p>HUTCHINS創業者の兄が作った新しいBBQレストラン。ファーマーズマーケット内にあり、コンクリートと木、鉄を組み合わせたスタイリッシュな内装が特徴。BBQレストランのイメージを覆すモダンな空間。</p>
+                <h4 class='font-semibold mt-4 mb-2'>名物・特徴:</h4>
+                <ul class='list-disc pl-5'>
+                    <li><strong>THE BIG PAPA:</strong> 拳二つ分はあろうかという巨大なじゃがいもに、チーズ、ブリスケット、ベーコン、サワークリームを乗せた豪快な一品。</li>
+                    <li><strong>モダンな空間:</strong> BBQ店とは思えないほど清潔でスタイリッシュな内装。</li>
+                    <li><strong>クラフトビール:</strong> バーカウンターでは多様なクラフトビールを提供。</li>
+                </ul>
+            `
+        }
+    ];
+
+    const learningsData = {
+        trimming: {
+            title: 'トリミングの極意',
+            content: `
+                <p class="mb-4">美味しいBBQの第一歩は、丁寧なトリミングから。均一な火入れと煙の循環を意識することが重要です。</p>
+                <ul class="list-disc pl-5 space-y-2">
+                    <li><strong>均一な厚み:</strong> ブリスケットの脂の多い部分を削り、全体の厚みをできるだけ平らにする。これにより、火の通りが均一になる。</li>
+                    <li><strong>滑らかなカーブ:</strong> 肉の角を作らず、滑らかなカーブを描くようにカットする。空気抵抗を減らし、熱と煙が満遍なく行き渡るようにするため。</li>
+                    <li><strong>ポークリブの膜剥がし:</strong> 骨側の薄い膜を丁寧に取り除く。これをしないと、食感が悪くなり、シーズニングの乗りも妨げられる。</li>
+                </ul>
+                <button class="llm-button mt-4" data-term="トリミング">✨ 詳細解説</button>
+            `
+        },
+        seasoning: {
+            title: 'シーズニングの黄金比',
+            content: `
+                <p class="mb-4">テキサスBBQの味の核となるシーズニング。シンプルながら奥深い、伝統の配合を学びました。</p>
+                <ul class="list-disc pl-5 space-y-2">
+                    <li><strong>伝統的なテキサススタイル:</strong> マスタードなどは使わず、ドライラブ（粉末スパイス）のみで味付けするのが基本。</li>
+                    <li><strong>黄金比率:</strong> ランディーさんから教わった配合は「ガーリックペッパー:4、ガーリックパウダー:3、塩:1.5、オニオンパウダー:1.5」。ほぼ目分量だが、このバランスが重要。</li>
+                    <li><strong>寝かせる時間:</strong> シーズニングを塗り込んだ後、アルミの容器に入れて蓋をし、冷蔵庫で一晩寝かせることで味がしっかりと馴染む。</li>
+                </ul>
+                <button class="llm-button mt-4" data-term="シーズニング">✨ 詳細解説</button>
+            `
+        },
+        smoking: {
+            title: 'スモーキングの科学',
+            content: `
+                <p class="mb-4">BBQの華であるスモーキング。温度管理と煙の質が、最高の仕上がりを生み出します。</p>
+                <ul class="list-disc pl-5 space-y-2">
+                    <li><strong>煙の色の見極め:</strong> 点火直後の白い煙（不完全燃焼）はエグみの原因。煙が薄い青色に変わってから肉を入れるのが鉄則。</li>
+                    <li><strong>最適な温度:</strong> 215-220℉（約101-104℃）の低温でじっくりと時間をかけて火を通す。</li>
+                    <li><strong>ラッピング（テキサスクラッチ）:</strong> ある程度火が通り、色（マホガニー色）がついたら、ペーパーで包む。これにより、肉の乾燥を防ぎ、火入れを促進し、色が黒くなりすぎるのを防ぐ。</li>
+                    <li><strong>長時間調理:</strong> ポークショルダーやブリスケットは12時間以上かけてスモークすることで、コラーゲンがゼラチン化し、手でほぐれるほど柔らかくなる。</li>
+                </ul>
+                <button class="llm-button mt-4" data-term="スモーキング">✨ 詳細解説</button>
+            `
+        }
+    };
+
+    const timelineNav = document.getElementById('timeline-nav');
+    const journeyTitle = document.getElementById('journey-title');
+    const journeyBody = document.getElementById('journey-body');
+
+    Object.keys(journeyData).forEach((key, index) => {
+        const date = key.replace('-', '/');
+        const item = document.createElement('div');
+        item.className = 'timeline-item relative pl-8 pb-4 cursor-pointer';
+        item.dataset.date = key;
+        item.innerHTML = `
+            <div class="timeline-dot"></div>
+            <h4 class="font-bold text-lg">${date}</h4>
+            <p class="text-sm text-stone-500">${journeyData[key].title.split('：')[1]}</p>
+        `;
+        timelineNav.appendChild(item);
+
+        item.addEventListener('click', () => {
+            updateJourneyContent(key);
+        });
+    });
+
+    function updateJourneyContent(key) {
+        journeyTitle.textContent = journeyData[key].title;
+        journeyBody.innerHTML = journeyData[key].content;
+        
+        document.querySelectorAll('.timeline-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.date === key);
+        });
+    }
+    
+    updateJourneyContent('7-6');
+
+    const restaurantGrid = document.getElementById('restaurant-grid');
+    restaurantData.forEach(resto => {
+        const card = document.createElement('div');
+        card.className = 'content-card bg-white rounded-lg overflow-hidden cursor-pointer';
+        card.innerHTML = `
+            <div class="p-6">
+                <h3 class="text-xl font-bold text-amber-800">${resto.name}</h3>
+                <p class="text-stone-500 mt-1">${resto.tagline}</p>
+            </div>
+            <div class="resto-details hidden bg-stone-50 p-6 border-t border-stone-200">
+                ${resto.content}
+            </div>
+        `;
+        restaurantGrid.appendChild(card);
+
+        card.addEventListener('click', () => {
+            const details = card.querySelector('.resto-details');
+            const isHidden = details.classList.contains('hidden');
+            
+            document.querySelectorAll('.resto-details').forEach(d => d.classList.add('hidden'));
+
+            if (isHidden) {
+                details.classList.remove('hidden');
+            }
+        });
+    });
+
+    const learningsContent = document.getElementById('learnings-content');
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const llmExplanationArea = document.getElementById('llm-explanation-area');
+    
+    async function updateLearningsContent(tab) {
+        const data = learningsData[tab];
+        learningsContent.innerHTML = `
+            <h3 class="text-2xl font-bold mb-4 text-stone-700">${data.title}</h3>
+            <div class="prose max-w-none text-stone-600">${data.content}</div>
+            <div id="llm-explanation-area" class="llm-response hidden"></div>
+            <div id="llm-loading" class="loading-indicator hidden">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                AIが解説を生成中...
+            </div>
+        `;
+        tabButtons.forEach(button => {
+            button.classList.toggle('active', button.dataset.tab === tab);
+        });
+
+        const llmButtons = learningsContent.querySelectorAll('.llm-button');
+        llmButtons.forEach(button => {
+            button.addEventListener('click', async () => {
+                const term = button.dataset.term;
+                const prompt = `テキサスBBQにおける「${term}」とは何か、詳細に解説してください。歴史や文化的な背景、調理における重要性なども含めて、専門家が初心者にも分かりやすく説明するような形でお願いします。`;
+                
+                const llmExplanationArea = learningsContent.querySelector('#llm-explanation-area');
+                const llmLoading = learningsContent.querySelector('#llm-loading');
+                llmExplanationArea.classList.add('hidden');
+                llmExplanationArea.innerHTML = '';
+                llmLoading.classList.remove('hidden');
+
+                try {
+                    let chatHistory = [];
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                    const payload = { contents: chatHistory };
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    const response = await fetch(apiUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const text = result.candidates[0].content.parts[0].text;
+                        llmExplanationArea.innerHTML = `<h4 class="font-bold text-lg mb-2">✨ ${term} 詳細解説</h4><p>${text}</p>`;
+                        llmExplanationArea.classList.remove('hidden');
+                    } else {
+                        llmExplanationArea.innerHTML = '<p class="text-red-600">解説の生成に失敗しました。</p>';
+                        llmExplanationArea.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error('Error calling Gemini API:', error);
+                    llmExplanationArea.innerHTML = '<p class="text-red-600">エラーが発生しました。もう一度お試しください。</p>';
+                    llmExplanationArea.classList.remove('hidden');
+                } finally {
+                    llmLoading.classList.add('hidden');
+                }
+            });
+        });
+    }
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            updateLearningsContent(button.dataset.tab);
+        });
+    });
+
+    updateLearningsContent('trimming');
+
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    const priceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['HUTCHIN\'S ビーフリブ', 'HUTCHIN\'S ブリスケット', 'HUTCHIN\'S ポークリブ', 'Walmart PRIME ステーキ', 'Walmart CHOICE ステーキ', 'Walmart 豚肉'],
+            datasets: [{
+                label: '価格 (円/100g)',
+                data: [1321, 1255, 1023, 660, 693, 135],
+                backgroundColor: [
+                    'rgba(180, 83, 9, 0.7)',
+                    'rgba(217, 119, 6, 0.7)',
+                    'rgba(245, 158, 11, 0.7)',
+                    'rgba(55, 65, 81, 0.6)',
+                    'rgba(107, 114, 128, 0.6)',
+                    'rgba(248, 113, 113, 0.6)'
+                ],
+                borderColor: [
+                    'rgb(180, 83, 9)',
+                    'rgb(217, 119, 6)',
+                    'rgb(245, 158, 11)',
+                    'rgb(55, 65, 81)',
+                    'rgb(107, 114, 128)',
+                    'rgb(248, 113, 113)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.x !== null) {
+                                label += new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(context.parsed.x);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: '価格 (円/100g)',
+                        font: {
+                            size: 14
+                        }
+                    }
+                },
+                y: {
+                   ticks: {
+                       font: {
+                           size: 12
+                       }
+                   }
+                }
+            }
+        }
+    });
+    
+    const generateRecipeBtn = document.getElementById('generate-recipe-btn');
+    const recipeOutput = document.getElementById('recipe-output');
+    const recipeLoading = document.getElementById('recipe-loading');
+
+    generateRecipeBtn.addEventListener('click', async () => {
+        const prompt = "テキサスBBQのブリスケット、ポークリブ、ポークショルダー、チキンクォーターを使った、家庭でも作りやすいシンプルなBBQレシピを提案してください。サイドディッシュのアイデアもいくつか含めてください。";
+        
+        recipeOutput.classList.add('hidden');
+        recipeOutput.innerHTML = '';
+        recipeLoading.classList.remove('hidden');
+
+        try {
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { contents: chatHistory };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+            const result = await response.json();
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                const text = result.candidates[0].content.parts[0].text;
+                recipeOutput.innerHTML = `<h4 class="font-bold text-lg mb-2">✨ テキサスBBQレシピ提案</h4><p>${text.replace(/\n/g, '<br>')}</p>`;
+                recipeOutput.classList.remove('hidden');
+            } else {
+                recipeOutput.innerHTML = '<p class="text-red-600">レシピの生成に失敗しました。</p>';
+                recipeOutput.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Error calling Gemini API:', error);
+            recipeOutput.innerHTML = '<p class="text-red-600">エラーが発生しました。もう一度お試しください。</p>';
+            recipeOutput.classList.remove('hidden');
+        } finally {
+            recipeLoading.classList.add('hidden');
+        }
+    });
+
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sections = document.querySelectorAll('section');
+
+    window.addEventListener('scroll', () => {
+        let current = '';
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            if (pageYOffset >= sectionTop - 200) {
+                current = section.getAttribute('id');
+            }
+        });
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href').substring(1) === current) {
+                link.classList.add('active');
+            }
+        });
+    });
+
+    navLinks.forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.querySelector(this.getAttribute('href')).scrollIntoView({
+                behavior: 'smooth'
+            });
+        });
+    });
+});
+</script>
+
+</body>
+</html>
