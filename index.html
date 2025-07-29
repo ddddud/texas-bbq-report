@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals -->
-    <!-- Application Structure Plan: このSPAは、ユーザーが情報を自由に探索できるよう、テーマ別のセクションを持つダッシュボード形式を採用しています。ナビゲーションで「旅の軌跡」「BBQレストラン探訪」「BBQの学び」「データ分析」の各セクションにジャンプできます。「旅の軌跡」では日付をクリックするとその日の詳細が表示され、「レストラン探訪」ではカードをクリックすると詳細が展開されます。この非線形な構造は、レポートの章立てをなぞるのではなく、ユーザーの興味に応じて情報を深掘りできるため、より高いエンゲージメントと理解を促進すると考え採用しました。 -->
-    <!-- Visualization & Content Choices: レポート情報を「目的」に応じて最適な形式に変換しました。旅の全体像を把握する「目的」のため、HTML/CSSでインタラクティブな「タイムライン」を作成。レストランを比較・理解する「目的」のため、クリックで詳細が表示される「カードグリッド」を採用。技術的な学びを整理する「目的」のため、「タブUI」で情報を分類。価格を比較する「目的」のため、Chart.jsを用いて「横棒グラフ」を作成し、専門店の価格とスーパーの価格を視覚的に対比させました。これにより、テキストだけでは伝わりにくい関係性や比較が直感的に理解できます。Gemini APIを活用し、BBQ用語の詳細解説とテキサスBBQレシピ提案の機能を追加しました。 -->
+    <!-- Application Structure Plan: このSPAは、ユーザーが情報を自由に探索できるよう、テーマ別のセクションを持つダッシュボード形式を採用しています。ナビゲーションで「旅の軌跡」「BBQレストラン探訪」「BBQの学び」「データ分析」「アルバム」の各セクションにジャンプできます。「旅の軌跡」では日付をクリックするとその日の詳細が表示され、「レストラン探訪」ではカードをクリックすると詳細が展開されます。「アルバム」では写真をクリックすると詳細が表示されます。この非線形な構造は、レポートの章立てをなぞるのではなく、ユーザーの興味に応じて情報を深掘りできるため、より高いエンゲージメントと理解を促進すると考え採用しました。 -->
+    <!-- Visualization & Content Choices: レポート情報を「目的」に応じて最適な形式に変換しました。旅の全体像を把握する「目的」のため、HTML/CSSでインタラクティブな「タイムライン」を作成。レストランを比較・理解する「目的」のため、クリックで詳細が表示される「カードグリッド」を採用。技術的な学びを整理する「目的」のため、「タブUI」で情報を分類。価格を比較する「目的」のため、Chart.jsを用いて「横棒グラフ」を作成し、専門店の価格とスーパーの価格を視覚的に対比させました。旅の情景を視覚的に体験する「目的」のため、「アルバム」セクションにクリックで詳細が表示される「写真グリッド」を追加しました。さらに、ユーザーが写真を「アップロード」する体験を可視化するため、ファイル選択、プレビュー表示、説明入力、そしてアルバムへの動的追加を行うフォームを実装しました。これにより、テキストだけでは伝わりにくい関係性や比較が直感的に理解できます。Gemini APIを活用し、BBQ用語の詳細解説とテキサスBBQレシピ提案の機能を追加しました。 -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
@@ -117,6 +117,47 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .upload-form-container {
+            background-color: #FFF;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            margin-top: 2rem;
+        }
+        .upload-form-container label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #382E28;
+        }
+        .upload-form-container input[type="file"],
+        .upload-form-container textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #D1D5DB;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            color: #382E28;
+        }
+        .upload-form-container input[type="file"] {
+            background-color: #F9FAFB;
+            cursor: pointer;
+        }
+        .upload-form-container textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .upload-form-container img {
+            max-width: 100%;
+            height: auto;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #E5E7EB;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -133,6 +174,7 @@
                 <a href="#restaurants" class="nav-link font-semibold whitespace-nowrap px-2 py-2 text-sm sm:text-base">BBQレストラン探訪</a>
                 <a href="#learnings" class="nav-link font-semibold whitespace-nowrap px-2 py-2 text-sm sm:text-base">BBQの学び</a>
                 <a href="#data" class="nav-link font-semibold whitespace-nowrap px-2 py-2 text-sm sm:text-base">データ分析</a>
+                <a href="#album" class="nav-link font-semibold whitespace-nowrap px-2 py-2 text-sm sm:text-base">アルバム</a>
             </div>
         </div>
     </nav>
@@ -178,7 +220,7 @@
             </div>
         </section>
 
-        <section id="data" class="scroll-mt-48">
+        <section id="data" class="mb-16 scroll-mt-48">
             <h2 class="text-3xl font-bold text-center mb-2 text-amber-800">データで見るテキサスBBQ</h2>
             <p class="text-center text-stone-600 mb-12 max-w-3xl mx-auto">感覚だけでなく、数字からもテキサスBBQを分析します。このグラフは、専門店「HUTCHIN'S」のBBQメニューと、大手スーパー「ウォルマート」で販売されている牛肉の価格（100gあたり）を比較したものです。職人の技術と手間が価格にどう反映されているか、一目でわかります。</p>
             <div class="bg-white p-4 md:p-8 rounded-lg shadow-lg">
@@ -196,6 +238,31 @@
                         レシピ生成中...
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <section id="album" class="scroll-mt-48">
+            <h2 class="text-3xl font-bold text-center mb-2 text-amber-800">アルバム</h2>
+            <p class="text-center text-stone-600 mb-12 max-w-3xl mx-auto">テキサスでの旅の思い出を写真で振り返りましょう。美味しいBBQ料理、美しい風景、そして現地での出会いなど、様々な瞬間を切り取った写真（プレースホルダー画像）をブラウズできます。写真をクリックすると、その説明が表示されます。</p>
+            <div class="text-center mb-8">
+                <button id="add-photo-btn" class="llm-button">写真を追加</button>
+            </div>
+            <div id="upload-form-container" class="upload-form-container hidden max-w-2xl mx-auto mb-8">
+                <h3 class="text-xl font-bold mb-4 text-stone-700">新しい写真をアルバムに追加</h3>
+                <p class="text-sm text-stone-500 mb-4">※この機能はブラウザ内でのシミュレーションです。実際のファイルアップロードにはサーバーが必要です。ブラウザを閉じると追加された写真は失われます。</p>
+                <label for="image-upload-input">画像ファイルを選択:</label>
+                <input type="file" id="image-upload-input" accept="image/*">
+                <div class="text-center">
+                    <img id="image-preview" src="" alt="画像プレビュー" class="hidden mx-auto my-4 border border-stone-200 p-2 rounded-lg">
+                </div>
+                <label for="image-description-input">写真の説明:</label>
+                <textarea id="image-description-input" placeholder="写真に関する説明を入力してください"></textarea>
+                <div class="flex justify-center space-x-4">
+                    <button id="add-to-album-btn" class="llm-button">アルバムに追加</button>
+                    <button id="cancel-upload-btn" class="llm-button bg-stone-500 hover:bg-stone-600">キャンセル</button>
+                </div>
+            </div>
+            <div id="album-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             </div>
         </section>
 
@@ -307,12 +374,13 @@ document.addEventListener('DOMContentLoaded', function() {
         {
             name: 'LOCAL YOCAL',
             tagline: 'ウエスタンと高級感の融合',
+            imageUrl: 'https://placehold.co/600x400/D97706/FFFFFF?text=LOCAL+YOCAL',
             content: `
                 <p>ブティック街にある女性に人気のレストラン。ランディーさんの友人が経営しており、ウエスタンな雰囲気に高級感をプラスした内装が特徴。数百種類のお酒が並ぶバーカウンターや、手書きの黒板メニューが親しみやすさを演出している。</p>
                 <h4 class='font-semibold mt-4 mb-2'>名物・特徴:</h4>
                 <ul class='list-disc pl-5'>
                     <li><strong>The Hamilton Burger:</strong> アメリカン和牛100%のパティ2枚にカリカリのベーコンとチーズを合わせた絶品バーガー。</li>
-                    <li><strong>クラフトビール:</strong> 近くのブルワリーから仕入れた多様なクラフトビールが楽しめる。</li>
+                    <li><strong>クラフトビール::</strong> 近くのブルワリーから仕入れた多様なクラフトビールが楽しめる。</li>
                     <li><strong>哲学:</strong> BBQ専門店ではないが、質の高い料理と居心地の良い空間を提供。</li>
                 </ul>
             `
@@ -320,6 +388,7 @@ document.addEventListener('DOMContentLoaded', function() {
         {
             name: 'HUTCHIN’S BARBEQUE',
             tagline: '王者の風格、伝統の味',
+            imageUrl: 'https://placehold.co/600x400/B45309/FFFFFF?text=HUTCHIN%27S+BBQ',
             content: `
                 <p>ランディーさん曰く「この周辺で一番美味しい」BBQ店。最新の温度管理システムを導入したピットが並び、伝統の味を高いレベルで提供し続ける。価格は高いが、その価値は十分にあると納得させられる。</p>
                 <h4 class='font-semibold mt-4 mb-2'>名物・特徴:</h4>
@@ -333,6 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
         {
             name: 'VAQUERO’S BAR-B-Q',
             tagline: '革新と伝統が交差するTEX-MEX',
+            imageUrl: 'https://placehold.co/600x400/8B5CF6/FFFFFF?text=VAQUERO%27S+BBQ',
             content: `
                 <p>メキシコにルーツを持つピットマスターが営む、革新的なBBQショップ。最大の特徴は、煙を濾過して水蒸気のみを排出する屋内のBBQピット。これにより、従業員は快適な環境で作業できる。</p>
                 <h4 class='font-semibold mt-4 mb-2'>名物・特徴:</h4>
@@ -346,6 +416,7 @@ document.addEventListener('DOMContentLoaded', function() {
         {
             name: 'HURTADO BARBECUE',
             tagline: '新世代のスタイリッシュBBQ',
+            imageUrl: 'https://placehold.co/600x400/EF4444/FFFFFF?text=HURTADO+BBQ',
             content: `
                 <p>HUTCHINS創業者の兄が作った新しいBBQレストラン。ファーマーズマーケット内にあり、コンクリートと木、鉄を組み合わせたスタイリッシュな内装が特徴。BBQレストランのイメージを覆すモダンな空間。</p>
                 <h4 class='font-semibold mt-4 mb-2'>名物・特徴:</h4>
@@ -357,6 +428,51 @@ document.addEventListener('DOMContentLoaded', function() {
             `
         }
     ];
+
+    const initialAlbumData = [
+        {
+            src: 'https://placehold.co/600x400/D97706/FFFFFF?text=Texas+BBQ+Brisket',
+            alt: 'テキサスBBQブリスケット',
+            description: '完璧にスモークされたブリスケット。長時間調理された肉は、とろけるような柔らかさです。'
+        },
+        {
+            src: 'https://placehold.co/600x400/4B5563/FFFFFF?text=Texas+Landscape',
+            alt: 'テキサスの広大な風景',
+            description: '地平線まで続く広大なテキサスの風景。ドライブ中に見かけた美しい景色です。'
+        },
+        {
+            src: 'https://placehold.co/600x400/10B981/FFFFFF?text=Randy+and+Family',
+            alt: 'ランディーさんと家族との交流',
+            description: 'BBQの師匠ランディーさんと、温かいご家族との楽しいひととき。彼らのホスピタリティに感謝です。'
+        },
+        {
+            src: 'https://placehold.co/600x400/F59E0B/FFFFFF?text=BBQ+Pit+Smoking',
+            alt: 'スモーク中のBBQピット',
+            description: '肉をじっくりとスモークしているBBQピット。煙の香りが食欲をそそります。'
+        },
+        {
+            src: 'https://placehold.co/600x400/EF4444/FFFFFF?text=Texas+BBQ+Ribs',
+            alt: 'テキサスBBQポークリブ',
+            description: '骨から簡単に外れるほど柔らかく調理されたポークリブ。シーズニングが効いていて絶品でした。'
+        },
+        {
+            src: 'https://placehold.co/600x400/6B7280/FFFFFF?text=Walmart+Experience',
+            alt: 'ウォルマートでの買い物体験',
+            description: '初めて訪れた巨大スーパー、ウォルマート。商品のスケールに驚きました。'
+        },
+        {
+            src: 'https://placehold.co/600x400/D1D5DB/FFFFFF?text=Local+Yocal+Interior',
+            alt: 'LOCAL YOCALの店内',
+            description: 'ウエスタンとモダンが融合したLOCAL YOCALのスタイリッシュな店内。'
+        },
+        {
+            src: 'https://placehold.co/600x400/9CA3AF/FFFFFF?text=Texas+Sunset',
+            alt: 'テキサスの夕日',
+            description: '旅の終わりに見た、テキサスの燃えるような美しい夕日。'
+        }
+    ];
+
+    let albumData = [...initialAlbumData]; // アルバムデータをコピーして、動的に追加できるようにする
 
     const learningsData = {
         trimming: {
@@ -435,6 +551,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const card = document.createElement('div');
         card.className = 'content-card bg-white rounded-lg overflow-hidden cursor-pointer';
         card.innerHTML = `
+            <div class="relative h-48 overflow-hidden">
+                <img src="${resto.imageUrl}" alt="${resto.name} の画像" class="w-full h-full object-cover">
+            </div>
             <div class="p-6">
                 <h3 class="text-xl font-bold text-amber-800">${resto.name}</h3>
                 <p class="text-stone-500 mt-1">${resto.tagline}</p>
@@ -459,7 +578,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const learningsContent = document.getElementById('learnings-content');
     const tabButtons = document.querySelectorAll('.tab-button');
-    const llmExplanationArea = document.getElementById('llm-explanation-area');
     
     async function updateLearningsContent(tab) {
         const data = learningsData[tab];
@@ -590,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         font: {
                             size: 14
                         }
-                    }
+                        }
                 },
                 y: {
                    ticks: {
@@ -643,6 +761,106 @@ document.addEventListener('DOMContentLoaded', function() {
             recipeLoading.classList.add('hidden');
         }
     });
+
+    const albumGrid = document.getElementById('album-grid');
+    const addPhotoBtn = document.getElementById('add-photo-btn');
+    const uploadFormContainer = document.getElementById('upload-form-container');
+    const imageUploadInput = document.getElementById('image-upload-input');
+    const imagePreview = document.getElementById('image-preview');
+    const imageDescriptionInput = document.getElementById('image-description-input');
+    const addToAlbumBtn = document.getElementById('add-to-album-btn');
+    const cancelUploadBtn = document.getElementById('cancel-upload-btn');
+
+    function renderAlbum() {
+        albumGrid.innerHTML = ''; // アルバムグリッドをクリア
+        albumData.forEach(photo => {
+            const card = document.createElement('div');
+            card.className = 'content-card bg-white rounded-lg overflow-hidden cursor-pointer';
+            card.innerHTML = `
+                <div class="relative h-48 overflow-hidden">
+                    <img src="${photo.src}" alt="${photo.alt}" class="w-full h-full object-cover">
+                </div>
+                <div class="p-4">
+                    <h3 class="text-lg font-semibold text-stone-700">${photo.alt}</h3>
+                </div>
+                <div class="photo-details hidden bg-stone-50 p-4 border-t border-stone-200">
+                    <p class="text-stone-600">${photo.description}</p>
+                </div>
+            `;
+            albumGrid.appendChild(card);
+
+            card.addEventListener('click', () => {
+                const details = card.querySelector('.photo-details');
+                details.classList.toggle('hidden');
+            });
+        });
+    }
+
+    renderAlbum(); // 初回レンダリング
+
+    addPhotoBtn.addEventListener('click', () => {
+        uploadFormContainer.classList.remove('hidden');
+        addPhotoBtn.classList.add('hidden');
+        imagePreview.classList.add('hidden'); // フォーム表示時にプレビューを非表示に
+        imageUploadInput.value = ''; // ファイル選択をクリア
+        imageDescriptionInput.value = ''; // 説明をクリア
+    });
+
+    cancelUploadBtn.addEventListener('click', () => {
+        uploadFormContainer.classList.add('hidden');
+        addPhotoBtn.classList.remove('hidden');
+        imagePreview.classList.add('hidden');
+        imageUploadInput.value = '';
+        imageDescriptionInput.value = '';
+    });
+
+    imageUploadInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imagePreview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        } else {
+            imagePreview.classList.add('hidden');
+            imagePreview.src = '';
+        }
+    });
+
+    addToAlbumBtn.addEventListener('click', () => {
+        const imageUrl = imagePreview.src;
+        const imageDescription = imageDescriptionInput.value.trim();
+        const imageAlt = imageDescription || 'ユーザーが追加した写真';
+
+        if (!imageUrl || imageUrl === window.location.href) { // imageUrlが空またはデフォルトのabout:blankの場合
+            alert('画像ファイルを選択してください。');
+            return;
+        }
+        if (!imageDescription) {
+            alert('写真の説明を入力してください。');
+            return;
+        }
+
+        const newPhoto = {
+            src: imageUrl,
+            alt: imageAlt,
+            description: imageDescription
+        };
+
+        albumData.unshift(newPhoto); // 新しい写真を配列の先頭に追加
+        renderAlbum(); // アルバムを再レンダリング
+
+        // フォームをリセットして非表示にする
+        uploadFormContainer.classList.add('hidden');
+        addPhotoBtn.classList.remove('hidden');
+        imagePreview.classList.add('hidden');
+        imageUploadInput.value = '';
+        imageDescriptionInput.value = '';
+        alert('写真がアルバムに追加されました！ (このデータはブラウザを閉じると失われます)');
+    });
+
 
     const navLinks = document.querySelectorAll('.nav-link');
     const sections = document.querySelectorAll('section');
